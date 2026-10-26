@@ -1,4 +1,21 @@
 {
   "name": "PennyChest plugins",
-  "plugins": []
+  "plugins": [
+    {
+      "package": "beancount",
+      "name": "Beancount",
+      "description": "Export the ledger in Beancount's plain-text format, for Fava and bean-query",
+      "version": "0.2.0",
+      "url": "https://github.com/pennychest/plugins/releases/download/beancount-v0.2.0/beancount-0.2.0.tar.gz",
+      "sha256": "a767f5b665fb6eee4c61b0c766259631f6e900696c793ed081c1b4e596616c07"
+    },
+    {
+      "package": "hsbc",
+      "name": "HSBC statements",
+      "description": "HSBC CIIOM PDF statements, for current accounts and credit cards",
+      "version": "0.2.0",
+      "url": "https://github.com/pennychest/plugins/releases/download/hsbc-v0.2.0/hsbc-0.2.0.tar.gz",
+      "sha256": "5f91e269e6dfacfc45d5b6aa33843b4bc7e9e93d33e01f060fb302d43ff20021"
+    }
+  ]
 }
