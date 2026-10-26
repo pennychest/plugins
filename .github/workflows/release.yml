@@ -1,8 +1,10 @@
 name: Release a plugin
 
 # Pushing a tag such as hsbc-v0.2.0 releases that plugin: it's built for WASI and packaged,
-# the package is attached to a GitHub release, and plugins.json on main points at it, so
-# PennyChest offers the new version in Settings > Plugins.
+# the package is attached to a GitHub release, and a pull request points plugins.json at it.
+# Once that's merged, PennyChest offers the new version in Settings > Plugins. main only takes
+# pull requests, so the pull request is opened as the release GitHub App, whose pull requests
+# run CI.
 
 on:
   push:
@@ -45,14 +47,30 @@ jobs:
           gh release create "$GITHUB_REF_NAME" "dist/${{ steps.package.outputs.file }}" \
             --title "${{ steps.package.outputs.name }} ${{ steps.package.outputs.version }}" \
             --notes "$notes"
-      - name: Point plugins.json at it
+      - uses: actions/create-github-app-token@v3
+        id: app-token
+        with:
+          client-id: ${{ vars.RELEASE_APP_CLIENT_ID }}
+          private-key: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}
+          permission-contents: write
+          permission-pull-requests: write
+      - name: Open a pull request pointing plugins.json at it
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          APP_SLUG: ${{ steps.app-token.outputs.app-slug }}
         run: |
+          name="${{ steps.package.outputs.name }}"
+          version="${{ steps.package.outputs.version }}"
+          branch="release/$GITHUB_REF_NAME"
           git fetch origin main
-          git checkout main
+          git checkout -b "$branch" origin/main
           url="https://github.com/${GITHUB_REPOSITORY}/releases/download/${GITHUB_REF_NAME}/${{ steps.package.outputs.file }}"
-          python3 tools/update_index.py "${{ steps.package.outputs.name }}" \
-            "${{ steps.package.outputs.version }}" "$url" "${{ steps.package.outputs.sha256 }}"
-          git config user.name "github-actions[bot]"
-          git config user.email "41898299+github-actions[bot]@users.noreply.github.com"
-          git commit -am "🔖 ${{ steps.package.outputs.name }} ${{ steps.package.outputs.version }} in plugins.json"
-          git push origin main
+          python3 tools/update_index.py "$name" "$version" "$url" "${{ steps.package.outputs.sha256 }}"
+          user_id=$(gh api "/users/${APP_SLUG}[bot]" --jq .id)
+          git config user.name "${APP_SLUG}[bot]"
+          git config user.email "${user_id}+${APP_SLUG}[bot]@users.noreply.github.com"
+          git commit -am "🔖 $name $version in plugins.json"
+          git push "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" "$branch"
+          gh pr create --base main --head "$branch" \
+            --title "🔖 $name $version in plugins.json" \
+            --body "Lists $name $version, released as $GITHUB_REF_NAME, so PennyChest offers it in Settings > Plugins."
