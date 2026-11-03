@@ -1,12 +1,13 @@
 """Makes made-up HSBC statements, laid out as the real ones are, for the importer's tests.
 
     pip install reportlab
-    python hsbc/tests/fixtures/make_statements.py
+    python hsbc-ciiom/tests/fixtures/make_statements.py
 
 Writes current_account.pdf and credit_card.pdf next to this file. Every name, number and
-transaction is invented. The column positions are those the importer reads real statements
-by: dates at 53pt, payment types at 112pt, descriptions at 140pt, and the paid out, paid in
-and balance columns right-aligned under their headers.
+transaction is invented, but they add up, as the importer checks. The column positions are
+those of real statements: dates at 53pt, payment types at 112pt, descriptions at 140pt, and
+the paid out, paid in and balance columns right-aligned just past their headers, so that a long
+amount starts left of its column's header.
 """
 
 from pathlib import Path
@@ -35,23 +36,23 @@ def ca_header(c, top):
     text(c, 165, top, "and")
     text(c, 182, top, "details")
     text(c, 357, top, "Paidout")
-    text(c, 430, top, "Paidin")
-    text(c, 505, top, "Balance")
+    text(c, 445, top, "Paidin")
+    text(c, 521, top, "Balance")
 
 
-def ca_row(c, top, date="", kind="", details="", out="", paid_in="", balance=""):
+def ca_row(c, top, date="", kind="", details="", out="", paid_in="", balance="", date_drop=0):
     if date:
-        text(c, 53, top, date)
+        text(c, 53, top + date_drop, date)
     if kind:
         text(c, 112, top, kind)
     if details:
         text(c, 140, top, details)
     if out:
-        right(c, 410, top, out)
+        right(c, 388, top, out)
     if paid_in:
-        right(c, 485, top, paid_in)
+        right(c, 473, top, paid_in)
     if balance:
-        right(c, 560, top, balance)
+        right(c, 550, top, balance)
 
 
 def current_account():
@@ -63,9 +64,9 @@ def current_account():
     text(c, 53, 102, "Alice Jane Example 40-11-22 31926819 7")
     # HSBC prints these labels as one word.
     text(c, 53, 125, "OpeningBalance 1,000.00")
-    text(c, 53, 137, "Paymentsin 2,600.00")
-    text(c, 53, 149, "Paymentsout 1,365.44")
-    text(c, 53, 161, "ClosingBalance 2,234.56")
+    text(c, 53, 137, "Paymentsin 12,601.36")
+    text(c, 53, 149, "Paymentsout 11,415.44")
+    text(c, 53, 161, "ClosingBalance 2,185.92")
     ca_header(c, 200)
     ca_row(c, 215, "27 Nov 25", details="BALANCEBROUGHTFORWARD", balance="1,000.00")
     ca_row(c, 230, "28 Nov 25", "VIS", "TESCO STORES 2041", "12.50")
@@ -81,12 +82,21 @@ def current_account():
     ca_header(c, 80)
     ca_row(c, 95, details="REF FLAT 2", out="1,198.75", balance="2,134.56")
     ca_row(c, 110, "20 Dec 25", "BP", "J SMITH", paid_in="100.00")
-    ca_row(c, 125, "26 Dec 25", details="BALANCECARRIEDFORWARD", balance="2,234.56")
+    # A long amount paid in, with a long balance after it.
+    ca_row(c, 125, "22 Dec 25", "CR", "EXAMPLE SALE", paid_in="10,000.00", balance="12,234.56")
+    # Money out with a long balance after it.
+    ca_row(c, 140, "23 Dec 25", "DD", "GAS BILL", "50.00", balance="12,184.56")
+    # A long amount paid out.
+    ca_row(c, 155, "24 Dec 25", "BP", "BIG PAYMENT", "10,000.00", balance="2,184.56")
+    # The date sits a little lower than the rest of its line.
+    ca_row(c, 286.4, "25 Dec 25", "CR", "GROSS INTEREST", date_drop=0.4)
+    ca_row(c, 298, details="TO 24DEC2025", paid_in="1.36", balance="2,185.92")
+    ca_row(c, 313, "26 Dec 25", details="BALANCECARRIEDFORWARD", balance="2,185.92")
     c.save()
 
 
 def cc_header(c, top):
-    right(c, 560, top - 8, "Amount")
+    text(c, 513, top - 8, "Amount")
     text(c, 40, top, "ReceivedByUs")
     text(c, 110, top, "TransactionDate")
     text(c, 185, top, "Details")
@@ -98,7 +108,7 @@ def cc_row(c, top, received, made, details, amount):
     for x, part in zip((110, 122, 138), made.split()):
         text(c, x, top, part)
     text(c, 185, top, details)
-    right(c, 560, top, amount)
+    right(c, 553, top, amount)
 
 
 def credit_card():
@@ -108,7 +118,8 @@ def credit_card():
     text(c, 40, 90, "Mr Bob Charles Example 4000 1234 5678 9010")
     text(c, 300, 90, "Statement Date 27 June 2026")
     text(c, 40, 110, "PreviousBalance 312.56")
-    text(c, 40, 122, "New Balance 1,025.23")
+    text(c, 40, 122, "New Balance 1,039.79")
+    text(c, 40, 134, "TOTAL INTEREST CHARGED ON THIS STATEM ENT 1.50")
     cc_header(c, 160)
     cc_row(c, 180, "29 May 26", "28 May 26", "TESCO STORES 2041", "43.50")
     cc_row(c, 195, "02 Jun 26", "02 Jun 26", ")))PRET A MANGER", "6.95")
@@ -118,8 +129,11 @@ def credit_card():
     # A continuation page with no header.
     text(c, 40, 40, "HSBC UK", 12)
     cc_row(c, 80, "20 Jun 26", "18 Jun 26", "TRAINLINE.COM", "1,007.83")
-    text(c, 40, 120, "Total")
-    right(c, 560, 120, "1,058.28")
+    # Long enough to start left of the column's header.
+    cc_row(c, 95, "21 Jun 26", "21 Jun 26", "PAYMENT - THANK YOU", "3,000.00CR")
+    cc_row(c, 110, "22 Jun 26", "21 Jun 26", "LARGE PURCHASE", "3,000.00")
+    text(c, 40, 130, "Total")
+    right(c, 553, 130, "1,058.28")
     c.save()
 
 

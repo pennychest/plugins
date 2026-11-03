@@ -1,6 +1,7 @@
-# HSBC statements
+# HSBC CIIOM statements
 
-Imports HSBC PDF statements into PennyChest: current accounts, savings and credit cards.
+Imports PDF statements from HSBC in the Channel Islands and Isle of Man (CIIOM) into PennyChest:
+current accounts, savings and credit cards.
 
 - Recognises an HSBC statement from the PDF, and whether it's a current account or a credit
   card from its wording.
@@ -10,6 +11,11 @@ Imports HSBC PDF statements into PennyChest: current accounts, savings and credi
   the account and its opening balance.
 - Reads every transaction, including descriptions over several lines and transactions that
   carry over to the next page. Contactless and in-app payments are noted as such.
+- Adds a card's interest as a transaction on the statement's date. It's part of the statement's
+  balance, but only its summary mentions it.
+- Checks every statement adds up: its opening balance and transactions have to come to its closing
+  balance. If they don't, or it can't read an amount or a balance, nothing from that statement is
+  imported, and it says why.
 
 It runs in PennyChest's sandbox: it sees only the statement it's sent.
 
@@ -22,7 +28,7 @@ each word is on the page, finds the column headings ("Paid out", "Paid in", "Bal
 ## Testing
 
 ```sh
-cargo test -p hsbc
+cargo test -p hsbc-ciiom
 ```
 
 The tests use made-up statements in HSBC's layout (`tests/fixtures`, made by
@@ -30,5 +36,5 @@ The tests use made-up statements in HSBC's layout (`tests/fixtures`, made by
 `current_account/` and `credit_card/` folders somewhere outside the repository and run
 
 ```sh
-HSBC_TEST_PDF_DIR=/path/to/statements cargo test -p hsbc
+HSBC_TEST_PDF_DIR=/path/to/statements cargo test -p hsbc-ciiom
 ```

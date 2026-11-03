@@ -1,5 +1,5 @@
 [workspace]
-members = ["beancount", "hsbc"]
+members = ["beancount", "hsbc-ciiom", "ofx"]
 resolver = "3"
 
 [workspace.package]

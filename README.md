@@ -6,7 +6,8 @@ a WebAssembly (WASI) module that PennyChest runs in a sandbox.
 
 | Plugin | Type | What it does |
 |---|---|---|
-| [`hsbc`](hsbc) | Importer | HSBC CIIOM PDF statements (current accounts and credit cards) |
+| [`hsbc-ciiom`](hsbc-ciiom) | Importer | HSBC CIIOM PDF statements (current accounts and credit cards) |
+| [`ofx`](ofx) | Importer | OFX downloads from any bank |
 | [`beancount`](beancount) | Exporter | The ledger in Beancount's plain-text format, for Fava and bean-query |
 
 ## Installing a plugin
@@ -24,7 +25,7 @@ are listed there already.
    - a `README.md`, whose first line is the name shown in Settings → Plugins;
    - a `CHANGELOG.md`, whose newest section becomes the release notes.
 
-   `hsbc/` is a complete importer and `beancount/` an exporter. Everything a plugin does is
+   `hsbc-ciiom/` is a complete importer and `beancount/` an exporter. Everything a plugin does is
    described in [the plugin protocol](https://pennychest.github.io/plugins/protocol/).
 3. Push, and tag the release: `git tag mybank-v0.1.0 && git push --tags`. The Release workflow
    builds and packages the plugin, attaches it to a GitHub release, and adds it to

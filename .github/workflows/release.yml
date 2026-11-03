@@ -1,6 +1,6 @@
 name: Release a plugin
 
-# Pushing a tag such as hsbc-v0.2.0 releases that plugin: it's built for WASI and packaged,
+# Pushing a tag such as hsbc-ciiom-v0.3.0 releases that plugin: it's built for WASI and packaged,
 # the package is attached to a GitHub release, and a pull request points plugins.json at it.
 # Once that's merged, PennyChest offers the new version in Settings > Plugins. main only takes
 # pull requests, so the pull request is opened as the release GitHub App, whose pull requests

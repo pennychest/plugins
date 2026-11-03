@@ -1,7 +1,7 @@
 [package]
-name = "hsbc"
-version = "0.2.0"
-description = "PennyChest importer for HSBC CIIOM current account and credit card PDF statements"
+name = "ofx"
+version = "0.1.0"
+description = "PennyChest importer for OFX downloads from any bank"
 edition.workspace = true
 license.workspace = true
 repository.workspace = true
@@ -10,12 +10,7 @@ publish = false
 
 [dependencies]
 pennychest-plugin.workspace = true
-pdf-extract.workspace = true
-regex.workspace = true
 serde_json.workspace = true
-
-[dev-dependencies]
-regex.workspace = true
 
 [lints]
 workspace = true
