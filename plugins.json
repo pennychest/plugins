@@ -10,12 +10,20 @@
       "sha256": "a767f5b665fb6eee4c61b0c766259631f6e900696c793ed081c1b4e596616c07"
     },
     {
-      "package": "hsbc",
-      "name": "HSBC statements",
+      "package": "hsbc-ciiom",
+      "name": "HSBC CIIOM statements",
       "description": "HSBC CIIOM PDF statements, for current accounts and credit cards",
-      "version": "0.2.0",
-      "url": "https://github.com/pennychest/plugins/releases/download/hsbc-v0.2.0/hsbc-0.2.0.tar.gz",
-      "sha256": "5f91e269e6dfacfc45d5b6aa33843b4bc7e9e93d33e01f060fb302d43ff20021"
+      "version": "0.3.0",
+      "url": "https://github.com/pennychest/plugins/releases/download/hsbc-ciiom-v0.3.0/hsbc-ciiom-0.3.0.tar.gz",
+      "sha256": "76539fd979f44a782bd85f379587fccf5c992d57b1934744a9837f9aed379be5"
+    },
+    {
+      "package": "ofx",
+      "name": "OFX downloads",
+      "description": "OFX downloads from any bank, for bank accounts and credit cards",
+      "version": "0.1.0",
+      "url": "https://github.com/pennychest/plugins/releases/download/ofx-v0.1.0/ofx-0.1.0.tar.gz",
+      "sha256": "09f3ae0b7eab7868519071730f563ec4b982605c0f0055693f8c55527827d135"
     }
   ]
 }
