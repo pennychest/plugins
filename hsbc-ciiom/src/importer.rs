@@ -7,7 +7,6 @@
 //! a current account by sort code and account number ("12-34-56 12345678"), a credit card by
 //! its last four digits ("****1234"). The full card number is never kept.
 
-use std::collections::BTreeMap;
 use std::str::FromStr;
 use std::sync::LazyLock;
 
@@ -38,11 +37,15 @@ fn regex(pattern: &str) -> Regex {
 static CA_DATE: LazyLock<Regex> = LazyLock::new(|| regex(r"^\d{1,2} \w{3} \d{2}$"));
 /// A credit card amount, "CR" for a credit: "43.50" or "249.91CR".
 static AMOUNT: LazyLock<Regex> = LazyLock::new(|| regex(r"^([0-9,]+\.\d{2})(CR)?$"));
-/// "OpeningBalance 9,815.51", "PreviousBalance 312.56" or "PreviousBalance 241.99CR".
+/// "OpeningBalance 9,815.51", "PreviousBalance 312.56" or "PreviousBalance 241.99CR". Some
+/// statements' figures come out with a stray space: "1,275.0 0".
 static OPENING_BALANCE: LazyLock<Regex> =
-    LazyLock::new(|| regex(r"(?i)(?:Opening|Previous)Balance\s+([\d,]+\.\d{2})(CR)?"));
+    LazyLock::new(|| regex(r"(?i)(?:Opening|Previous)Balance\s+([\d,]+\.\d\s?\d)(CR)?"));
 static CLOSING_BALANCE: LazyLock<Regex> =
-    LazyLock::new(|| regex(r"(?i)(?:Closing|New)\s*Balance\s+([\d,]+\.\d{2})(CR)?"));
+    LazyLock::new(|| regex(r"(?i)(?:Closing|New)\s*Balance\s+([\d,]+\.\d\s?\d)(CR)?"));
+/// "TOTAL INTEREST CHARGED ON THIS STATEMENT 0.03", in a card statement's summary.
+static CC_INTEREST: LazyLock<Regex> =
+    LazyLock::new(|| regex(r"(?i)TOTAL\s*INTEREST\s*CHARGED\D*?([\d,]+\.\d{2})"));
 /// "6 March to 26 March 2023" or "27 December 2023 to 26 January 2024": the start may leave
 /// out the year, which is then the end's.
 static CA_PERIOD: LazyLock<Regex> = LazyLock::new(|| {
@@ -177,7 +180,7 @@ fn decimal(text: &str) -> Option<Decimal> {
 /// A balance, signed for posting: an asset account's is positive in funds; a credit card's is
 /// negative when money is owed, positive with "CR".
 fn signed_balance(amount: &str, credit: bool, kind: StatementType) -> Option<Decimal> {
-    let value = decimal(amount)?;
+    let value = decimal(&amount.replace(' ', ""))?;
     Some(match kind {
         StatementType::CreditCard if !credit => -value,
         _ => value,
@@ -235,21 +238,22 @@ fn clean_description(description: &str) -> (String, Option<&'static str>) {
     )
 }
 
-/// Words grouped into visual rows: by `top` rounded to the nearest multiple of `step`, in order
-/// down the page, each row left to right.
+/// Words grouped into visual rows, each within `step` of its row's first word, in order down
+/// the page, each row left to right.
 fn rows_by_top<'a>(words: impl IntoIterator<Item = &'a Word>, step: f64) -> Vec<Vec<&'a Word>> {
-    let mut rows: BTreeMap<i64, Vec<&Word>> = BTreeMap::new();
-    for word in words {
-        rows.entry(round_half_even(word.top / step) * step as i64)
-            .or_default()
-            .push(word);
+    let mut sorted: Vec<&Word> = words.into_iter().collect();
+    sorted.sort_by(|a, b| a.top.total_cmp(&b.top));
+    let mut rows: Vec<Vec<&Word>> = Vec::new();
+    for word in sorted {
+        match rows.last_mut() {
+            Some(row) if word.top - row[0].top <= step => row.push(word),
+            _ => rows.push(vec![word]),
+        }
     }
-    rows.into_values()
-        .map(|mut row| {
-            row.sort_by(|a, b| a.x0.total_cmp(&b.x0));
-            row
-        })
-        .collect()
+    for row in &mut rows {
+        row.sort_by(|a, b| a.x0.total_cmp(&b.x0));
+    }
+    rows
 }
 
 /// Rounds to the nearest whole number, and halves to even.
@@ -330,14 +334,23 @@ fn ca_word_rows(page: &Page) -> Vec<CaRow> {
             for w in row {
                 let x = w.x0;
                 let t = w.text.as_str();
+                // Amounts are right-aligned, so a long one starts left of its column: where it
+                // ends says which it's in, and anything past paid in is the balance.
+                if AMOUNT.is_match(t) && w.x1 > paidout_x {
+                    if w.x1 < paidin_x {
+                        out.push(t);
+                    } else if w.x1 < balance_x {
+                        paid_in.push(t);
+                    }
+                    continue;
+                }
                 if x < type_x {
                     date.push(t);
                 } else if x < desc_x {
                     kind.push(t);
                 } else if x < paidout_x {
                     desc.push(t);
-                } else if x < paidin_x - 5.0 {
-                    // Paid-in amounts can start a little left of their header.
+                } else if x < paidin_x {
                     out.push(t);
                 } else if x < balance_x {
                     paid_in.push(t);
@@ -355,8 +368,9 @@ fn ca_word_rows(page: &Page) -> Vec<CaRow> {
 }
 
 /// Turns current account rows into transactions. A transaction can run over several rows,
-/// and onto the next page, so every page's rows come through together.
-fn ca_transactions(rows: &[CaRow]) -> Vec<Row> {
+/// and onto the next page, so every page's rows come through together. An amount it can't read
+/// is an error, not a row to skip.
+fn ca_transactions(rows: &[CaRow]) -> Result<Vec<Row>, String> {
     #[derive(Default)]
     struct Current {
         kind: Option<String>,
@@ -370,24 +384,33 @@ fn ca_transactions(rows: &[CaRow]) -> Vec<Row> {
     let mut date: Option<NaiveDate> = None;
     let mut current = Current::default();
 
-    let flush = |current: &mut Current, date: Option<NaiveDate>, result: &mut Vec<Row>| {
+    let flush = |current: &mut Current,
+                 date: Option<NaiveDate>,
+                 result: &mut Vec<Row>|
+     -> Result<(), String> {
         let taken = std::mem::take(current);
         let (Some(date), Some(kind)) = (date, taken.kind) else {
-            return;
+            return Ok(());
         };
-        let (raw_amount, sign) = if !taken.paid_in.is_empty() {
-            (&taken.paid_in, Decimal::ONE)
-        } else if !taken.paid_out.is_empty() {
-            (&taken.paid_out, Decimal::NEGATIVE_ONE)
-        } else {
-            return;
+        let (raw_amount, sign) = match (taken.paid_in.is_empty(), taken.paid_out.is_empty()) {
+            (false, true) => (&taken.paid_in, Decimal::ONE),
+            (true, false) => (&taken.paid_out, Decimal::NEGATIVE_ONE),
+            (true, true) => return Ok(()),
+            (false, false) => {
+                return Err(format!(
+                    "The transaction on {date} has both a paid out ({}) and a paid in ({}).",
+                    taken.paid_out, taken.paid_in
+                ));
+            }
         };
         let Ok(amount) = Decimal::from_str(&clean_amount(raw_amount)) else {
-            return;
+            return Err(format!(
+                "Couldn't read the amount \"{raw_amount}\" of the transaction on {date}."
+            ));
         };
         let (description, method) = clean_description(&taken.desc.join(" "));
         if description.is_empty() {
-            return;
+            return Ok(());
         }
         let mut metadata = Map::new();
         metadata.insert("payment_type".into(), Value::String(kind));
@@ -402,13 +425,14 @@ fn ca_transactions(rows: &[CaRow]) -> Vec<Row> {
             line_number: None,
             metadata,
         });
+        Ok(())
     };
 
     for (date_str, type_str, desc_str, out_str, in_str) in rows {
         let combined = format!("{date_str} {desc_str}");
         if combined.contains("BALANCEBROUGHTFORWARD") || desc_str.contains("BALANCECARRIEDFORWARD")
         {
-            flush(&mut current, date, &mut result);
+            flush(&mut current, date, &mut result)?;
             continue;
         }
         // A stray marker ("A") on its own, or an empty row.
@@ -426,14 +450,14 @@ fn ca_transactions(rows: &[CaRow]) -> Vec<Row> {
             .join(" | ");
 
         if CA_DATE.is_match(date_str) {
-            flush(&mut current, date, &mut result);
+            flush(&mut current, date, &mut result)?;
             date = parse_hsbc_date(date_str);
             if !type_str.is_empty() {
                 current.kind = Some(type_str.clone());
             }
         } else if !type_str.is_empty() && date_str.is_empty() {
             // Another transaction on the same date, or carried over from the last page.
-            flush(&mut current, date, &mut result);
+            flush(&mut current, date, &mut result)?;
             current.kind = Some(type_str.clone());
         } else if date_str.is_empty() && type_str.is_empty() {
             // More of the description, or the amount.
@@ -464,11 +488,11 @@ fn ca_transactions(rows: &[CaRow]) -> Vec<Row> {
         }
         current.raw.push(raw_line);
     }
-    flush(&mut current, date, &mut result);
-    result
+    flush(&mut current, date, &mut result)?;
+    Ok(result)
 }
 
-fn parse_current_account(pages: &[Page]) -> Vec<Row> {
+fn parse_current_account(pages: &[Page]) -> Result<Vec<Row>, String> {
     let rows: Vec<CaRow> = pages.iter().flat_map(ca_word_rows).collect();
     ca_transactions(&rows)
 }
@@ -542,7 +566,7 @@ fn first_received_date(pages: &[Page]) -> Option<NaiveDate> {
     None
 }
 
-fn parse_credit_card(pages: &[Page]) -> Vec<Row> {
+fn parse_credit_card(pages: &[Page]) -> Result<Vec<Row>, String> {
     let mut rows = Vec::new();
     // Columns carry over between pages: continuation pages have no header, and a page can
     // end one card's transactions above the next card's header.
@@ -563,6 +587,12 @@ fn parse_credit_card(pages: &[Page]) -> Vec<Row> {
             let (mut recv, mut txn, mut desc, mut amount) = (vec![], vec![], vec![], vec![]);
             for w in row {
                 let (x, t) = (w.x0, w.text.as_str());
+                // Amounts are right-aligned, so a long one starts left of its column: where
+                // it ends says it's in it.
+                if AMOUNT.is_match(t) && w.x1 > amount_x {
+                    amount.push(t);
+                    continue;
+                }
                 // 10pt of tolerance: right-aligned numbers and text can start a little left
                 // of their header.
                 if x < txn_x - 10.0 {
@@ -579,10 +609,17 @@ fn parse_credit_card(pages: &[Page]) -> Vec<Row> {
                 continue;
             }
             let amount_str = join(&amount);
+            let recv_date = parse_cc_date(&recv);
             let Some((value, credit)) = parse_cc_amount(&amount_str) else {
+                // A dated row is a transaction, unlike the headings and notes above.
+                if let Some(received) = recv_date {
+                    return Err(format!(
+                        "Couldn't read the amount \"{amount_str}\" of the transaction received \
+                         on {received}."
+                    ));
+                }
                 continue;
             };
-            let recv_date = parse_cc_date(&recv);
             let Some(date) = (if txn.is_empty() {
                 None
             } else {
@@ -621,7 +658,46 @@ fn parse_credit_card(pages: &[Page]) -> Vec<Row> {
             });
         }
     }
-    rows
+    Ok(rows)
+}
+
+/// The interest on a card statement, as a transaction on the statement's date. It's in the
+/// statement's balance and its debits, but only its summary says so: it isn't one of the
+/// transactions listed.
+fn cc_interest(text: &str) -> Option<Row> {
+    let m = CC_INTEREST.captures(text)?;
+    let interest = decimal(&m[1]).filter(|i| !i.is_zero())?;
+    Some(Row {
+        date: extract_cc_statement_date(text)?,
+        description: "INTEREST CHARGED".into(),
+        amount: -interest,
+        raw_content: m[0].split_whitespace().collect::<Vec<_>>().join(" "),
+        line_number: None,
+        metadata: Map::new(),
+    })
+}
+
+/// That the transactions take the opening balance to the closing one, so that nothing's been
+/// missed or misread. A statement is all or nothing: better no rows than wrong ones.
+fn check_adds_up(text: &str, kind: StatementType, rows: &[Row]) -> Result<(), String> {
+    let (Some(opening), Some(closing)) = (
+        extract_opening_balance(text, kind),
+        extract_closing_balance(text, kind),
+    ) else {
+        return Err(
+            "Couldn't read this statement's opening and closing balances, so couldn't check its \
+             transactions. Nothing was imported."
+                .into(),
+        );
+    };
+    let total: Decimal = rows.iter().map(|r| r.amount).sum();
+    if opening + total != closing {
+        return Err(format!(
+            "This statement doesn't add up, so nothing was imported: its balance goes from \
+             {opening} to {closing}, but the transactions read from it come to {total}."
+        ));
+    }
+    Ok(())
 }
 
 // The importer -------------------------------------------------------------------------------
@@ -663,20 +739,24 @@ impl Importer for Hsbc {
     fn parse(&self, file: &[u8]) -> Result<Vec<Row>, String> {
         let pages = pdf::pages(file).map_err(|e| format!("Failed to parse HSBC PDF: {e}"))?;
         let text = full_text(&pages);
-        let rows = match detect_statement_type(&text) {
-            Some(StatementType::CreditCard) => parse_credit_card(&pages),
-            Some(StatementType::CurrentAccount) => parse_current_account(&pages),
-            None => {
-                return Err(
-                    "Could not detect HSBC statement type. Expected a current account \
+        let Some(kind) = detect_statement_type(&text) else {
+            return Err(
+                "Could not detect HSBC statement type. Expected a current account \
                             or credit card statement."
-                        .into(),
-                );
-            }
+                    .into(),
+            );
+        };
+        let mut rows = match kind {
+            StatementType::CreditCard => parse_credit_card(&pages)?,
+            StatementType::CurrentAccount => parse_current_account(&pages)?,
         };
         if rows.is_empty() {
             return Err("No transactions found in HSBC statement.".into());
         }
+        if kind == StatementType::CreditCard {
+            rows.extend(cc_interest(&text));
+        }
+        check_adds_up(&text, kind, &rows)?;
         Ok(rows)
     }
 
@@ -850,6 +930,101 @@ mod tests {
         assert_eq!(round_half_even(-0.4), 0);
     }
 
+    #[test]
+    fn reads_a_balance_with_a_stray_space() {
+        use StatementType::*;
+        let text = "OpeningBalance 1,275.0 0\nClosing Balance 445.00";
+        assert_eq!(
+            extract_opening_balance(text, CurrentAccount),
+            Some(dec("1275.00"))
+        );
+        assert_eq!(
+            extract_closing_balance(text, CurrentAccount),
+            Some(dec("445.00"))
+        );
+    }
+
+    fn row(on: NaiveDate, amount: &str) -> Row {
+        Row {
+            date: on,
+            description: "SHOP".into(),
+            amount: dec(amount),
+            raw_content: String::new(),
+            line_number: None,
+            metadata: Map::new(),
+        }
+    }
+
+    #[test]
+    fn a_statement_has_to_add_up() {
+        use StatementType::*;
+        let on = date(2026, 1, 2);
+        let text = "OpeningBalance 100.00\nClosingBalance 90.00";
+        assert_eq!(
+            check_adds_up(text, CurrentAccount, &[row(on, "-10.00")]),
+            Ok(())
+        );
+        let error = check_adds_up(text, CurrentAccount, &[row(on, "-9.99")]).unwrap_err();
+        assert!(error.contains("doesn't add up"), "{error}");
+        assert!(error.contains("-9.99"), "{error}");
+        let error = check_adds_up("Nothing here", CurrentAccount, &[]).unwrap_err();
+        assert!(error.contains("Couldn't read"), "{error}");
+        // Owed on a card, so spending takes it further below zero.
+        let card = "PreviousBalance 100.00\nNew Balance 110.00";
+        assert_eq!(
+            check_adds_up(card, CreditCard, &[row(on, "-10.00")]),
+            Ok(())
+        );
+    }
+
+    #[test]
+    fn card_interest_is_a_transaction_on_the_statement_date() {
+        let text = "Statement Date 27 June 2026\n\
+                    TOTAL INTEREST CHARGED ON THIS STATEM ENT 1.50";
+        let interest = cc_interest(text).unwrap();
+        assert_eq!(interest.date, date(2026, 6, 27));
+        assert_eq!(interest.amount, dec("-1.50"));
+        assert_eq!(interest.description, "INTEREST CHARGED");
+        let none = "Statement Date 27 June 2026\nTOTAL INTEREST CHARGED 0.00";
+        assert!(cc_interest(none).is_none());
+        assert!(cc_interest("Statement Date 27 June 2026").is_none());
+    }
+
+    #[test]
+    fn current_accounts_refuse_amounts_they_cant_read() {
+        let row = |date: &str, kind: &str, out: &str, paid_in: &str| {
+            (
+                date.to_owned(),
+                kind.to_owned(),
+                "SHOP".to_owned(),
+                out.to_owned(),
+                paid_in.to_owned(),
+            )
+        };
+        let error = ca_transactions(&[row("01 Sep 26", "CR", "", "20.00 10,401.83")]).unwrap_err();
+        assert!(error.contains("20.00 10,401.83"), "{error}");
+        let error = ca_transactions(&[row("01 Sep 26", "DD", "50.00", "60.00")]).unwrap_err();
+        assert!(error.contains("both"), "{error}");
+    }
+
+    #[test]
+    fn rows_are_words_near_each_other() {
+        // Either side of what would be a line on a 3pt grid, but still the same row.
+        let words = [(53.0, 286.8), (112.0, 286.4), (140.0, 298.0)].map(|(x0, top)| Word {
+            text: String::new(),
+            x0,
+            x1: x0 + 10.0,
+            top,
+            bottom: top + 8.0,
+        });
+        let rows = rows_by_top(&words, 3.0);
+        let starts: Vec<Vec<f64>> = rows
+            .iter()
+            .map(|row| row.iter().map(|w| w.x0).collect())
+            .collect();
+        assert_eq!(starts, [vec![53.0, 112.0], vec![140.0]]);
+    }
+
     // Credit card statements over several pages, on a made-up layout with no real data.
 
     fn page(lines: &[(f64, Vec<(f64, &str)>)]) -> Page {
@@ -951,6 +1126,7 @@ mod tests {
             ]),
         ];
         let rows: Vec<(String, Decimal)> = parse_credit_card(&pages)
+            .unwrap()
             .into_iter()
             .map(|r| (r.description, r.amount))
             .collect();

@@ -1,5 +1,5 @@
 name = "hsbc-ciiom"
-version = "0.2.0"
+version = "0.3.0"
 description = "HSBC CIIOM PDF statements, for current accounts and credit cards"
 protocol = 1
 kinds = ["importer"]

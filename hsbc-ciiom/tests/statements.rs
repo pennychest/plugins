@@ -52,7 +52,7 @@ fn a_current_account_statement() {
     assert_eq!(info.period_start, Some(date("2025-11-27")));
     assert_eq!(info.period_end, Some(date("2025-12-26")));
     assert_eq!(info.opening_balance, Some(dec("1000.00")));
-    assert_eq!(info.closing_balance, Some(dec("2234.56")));
+    assert_eq!(info.closing_balance, Some(dec("2185.92")));
 
     let rows = Hsbc.parse(&pdf).unwrap();
     let expected = [
@@ -66,6 +66,12 @@ fn a_current_account_statement() {
         // Its amount is on the next page.
         ("2025-12-08", "RENT TO LANDLORD REF FLAT 2", "-1198.75"),
         ("2025-12-20", "J SMITH", "100.00"),
+        // Long amounts and balances, which start left of their columns' headers.
+        ("2025-12-22", "EXAMPLE SALE", "10000.00"),
+        ("2025-12-23", "GAS BILL", "-50.00"),
+        ("2025-12-24", "BIG PAYMENT", "-10000.00"),
+        // Its date sits a little lower than the rest of its line.
+        ("2025-12-25", "GROSS INTEREST TO 24DEC2025", "1.36"),
     ]
     .map(|(d, desc, a)| (d.to_owned(), desc.to_owned(), dec(a)));
     assert_eq!(summary(&rows), expected);
@@ -94,7 +100,7 @@ fn a_credit_card_statement() {
     assert_eq!(info.period_end, Some(date("2026-06-27")));
     // Owed, so negative on the card's liability account.
     assert_eq!(info.opening_balance, Some(dec("-312.56")));
-    assert_eq!(info.closing_balance, Some(dec("-1025.23")));
+    assert_eq!(info.closing_balance, Some(dec("-1039.79")));
 
     let rows = Hsbc.parse(&pdf).unwrap();
     let expected = [
@@ -104,6 +110,11 @@ fn a_credit_card_statement() {
         ("2026-06-10", "PAYMENT RECEIVED - THANK YOU", "312.56"),
         // From a continuation page with no header.
         ("2026-06-18", "TRAINLINE.COM", "-1007.83"),
+        // Long enough to start left of the column's header.
+        ("2026-06-21", "PAYMENT - THANK YOU", "3000.00"),
+        ("2026-06-21", "LARGE PURCHASE", "-3000.00"),
+        // Only in the statement's summary, but in its balance.
+        ("2026-06-27", "INTEREST CHARGED", "-1.50"),
     ]
     .map(|(d, desc, a)| (d.to_owned(), desc.to_owned(), dec(a)));
     assert_eq!(summary(&rows), expected);
