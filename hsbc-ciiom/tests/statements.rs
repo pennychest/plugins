@@ -4,14 +4,14 @@
 //! Real statements are never committed. To check against yours, put them in
 //! `current_account/` and `credit_card/` folders and run
 //!
-//!     HSBC_TEST_PDF_DIR=/path/to/statements cargo test -p hsbc
+//!     HSBC_TEST_PDF_DIR=/path/to/statements cargo test -p hsbc-ciiom
 //!
 //! Without `HSBC_TEST_PDF_DIR` those tests pass without checking anything, and say so.
 
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
 
-use hsbc::Hsbc;
+use hsbc_ciiom::Hsbc;
 use pennychest_plugin::{Decimal, Importer, NaiveDate, Row};
 use serde_json::json;
 

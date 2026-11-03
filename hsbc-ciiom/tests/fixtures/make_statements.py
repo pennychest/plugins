@@ -1,7 +1,7 @@
 """Makes made-up HSBC statements, laid out as the real ones are, for the importer's tests.
 
     pip install reportlab
-    python hsbc/tests/fixtures/make_statements.py
+    python hsbc-ciiom/tests/fixtures/make_statements.py
 
 Writes current_account.pdf and credit_card.pdf next to this file. Every name, number and
 transaction is invented. The column positions are those the importer reads real statements

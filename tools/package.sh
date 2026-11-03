@@ -4,7 +4,7 @@
 # and prints its entry for plugins.json. The archive is reproducible: the same source gives the
 # same bytes, so the same checksum.
 #
-#   tools/package.sh hsbc
+#   tools/package.sh hsbc-ciiom
 set -eu
 cd "$(dirname "$0")/.."
 name=$1

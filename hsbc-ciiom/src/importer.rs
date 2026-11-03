@@ -639,7 +639,7 @@ pub struct Hsbc;
 
 impl Importer for Hsbc {
     fn info(&self) -> ImporterInfo {
-        ImporterInfo::new("hsbc", "HSBC PDF statements", &["pdf"])
+        ImporterInfo::new("hsbc-ciiom", "HSBC CIIOM PDF statements", &["pdf"])
             .describe("HSBC bank statement importer (current account and credit card)")
             .detects()
             .with_statement_info()

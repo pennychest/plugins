@@ -6,9 +6,9 @@ people; this is the short version, plus the rules that aren't obvious from the c
 ## What's here
 
 Official plugins for [PennyChest](https://github.com/pennychest/pennychest). Each top-level
-directory (`hsbc/`, `beancount/`) is a Rust crate in one Cargo workspace, built as a WebAssembly
-(WASI) module that PennyChest runs in a sandbox. Each has its own version, `CHANGELOG.md` and
-tests.
+directory (`hsbc-ciiom/`, `beancount/`) is a Rust crate in one Cargo workspace, built as a
+WebAssembly (WASI) module that PennyChest runs in a sandbox. Each has its own version,
+`CHANGELOG.md` and tests.
 
 - `pennychest-plugin.toml` in each plugin: the manifest PennyChest reads (name, version, kinds,
   the `.wasm` to run)
@@ -49,10 +49,10 @@ CI sets `RUSTFLAGS=-D warnings`, so a warning fails it.
 - **Commit titles start with a gitmoji:** ✨ features, 🐛 fixes, 📝 docs, 👷 CI, ✅ tests, 🔖
   releases. Keep each commit to one plugin where you can.
 - **No real financial data in the repository.** The HSBC tests use made-up statements from
-  `hsbc/tests/fixtures/make_statements.py`; regenerate the PDFs with it rather than adding new
-  ones. Real statements are read from `HSBC_TEST_PDF_DIR` (or kept in the gitignored
-  `statements/`), and tests on them assert structure, never values. Don't commit statements, text
-  extracted from them or values from them.
+  `hsbc-ciiom/tests/fixtures/make_statements.py`; regenerate the PDFs with it rather than adding
+  new ones. Real statements are read from `HSBC_TEST_PDF_DIR` (or kept in the gitignored
+  `statements/`), and tests on them assert structure, never
+  values. Don't commit statements, text extracted from them or values from them.
 - **Keep plugins small.** They're downloaded when installed, which is why the release profile
   optimises for size. Think twice before adding a dependency, and `unsafe` is forbidden.
 - **READMEs are published.** Changes to `README.md` or `*/README.md` on `main` rebuild
@@ -61,8 +61,8 @@ CI sets `RUSTFLAGS=-D warnings`, so a warning fails it.
 
 ## Adding a plugin
 
-1. Add `<name>/`, modelled on `hsbc/` (importer) or `beancount/` (exporter): a `Cargo.toml` that
-   uses the workspace's `pennychest-plugin` dependency and lints, a `pennychest-plugin.toml` at
+1. Add `<name>/`, modelled on `hsbc-ciiom/` (importer) or `beancount/` (exporter): a `Cargo.toml`
+   that uses the workspace's `pennychest-plugin` dependency and lints, a `pennychest-plugin.toml` at
    the same version, a `README.md`, a `CHANGELOG.md` and tests.
 2. Add it to `members` in the workspace `Cargo.toml`, and to the table in `README.md`.
 3. Once it's merged, tag `<name>-v<version>`. Its `plugins.json` entry is added by the release.

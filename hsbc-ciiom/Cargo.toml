@@ -1,5 +1,5 @@
 [package]
-name = "hsbc"
+name = "hsbc-ciiom"
 version = "0.2.0"
 description = "PennyChest importer for HSBC CIIOM current account and credit card PDF statements"
 edition.workspace = true
