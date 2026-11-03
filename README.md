@@ -7,6 +7,7 @@ a WebAssembly (WASI) module that PennyChest runs in a sandbox.
 | Plugin | Type | What it does |
 |---|---|---|
 | [`hsbc-ciiom`](hsbc-ciiom) | Importer | HSBC CIIOM PDF statements (current accounts and credit cards) |
+| [`ofx`](ofx) | Importer | OFX downloads from any bank |
 | [`beancount`](beancount) | Exporter | The ledger in Beancount's plain-text format, for Fava and bean-query |
 
 ## Installing a plugin

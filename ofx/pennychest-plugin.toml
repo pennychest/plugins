@@ -1,0 +1,8 @@
+name = "ofx"
+version = "0.1.0"
+description = "OFX downloads from any bank, for bank accounts and credit cards"
+protocol = 1
+kinds = ["importer"]
+
+[run]
+wasm = "ofx.wasm"

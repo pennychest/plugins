@@ -6,7 +6,7 @@ people; this is the short version, plus the rules that aren't obvious from the c
 ## What's here
 
 Official plugins for [PennyChest](https://github.com/pennychest/pennychest). Each top-level
-directory (`hsbc-ciiom/`, `beancount/`) is a Rust crate in one Cargo workspace, built as a
+directory (`hsbc-ciiom/`, `ofx/`, `beancount/`) is a Rust crate in one Cargo workspace, built as a
 WebAssembly (WASI) module that PennyChest runs in a sandbox. Each has its own version,
 `CHANGELOG.md` and tests.
 
@@ -51,7 +51,7 @@ CI sets `RUSTFLAGS=-D warnings`, so a warning fails it.
 - **No real financial data in the repository.** The HSBC tests use made-up statements from
   `hsbc-ciiom/tests/fixtures/make_statements.py`; regenerate the PDFs with it rather than adding
   new ones. Real statements are read from `HSBC_TEST_PDF_DIR` (or kept in the gitignored
-  `statements/`), and tests on them assert structure, never
+  `statements/`), real OFX files from `OFX_TEST_DIR`, and tests on them assert structure, never
   values. Don't commit statements, text extracted from them or values from them.
 - **Keep plugins small.** They're downloaded when installed, which is why the release profile
   optimises for size. Think twice before adding a dependency, and `unsafe` is forbidden.
