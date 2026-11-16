@@ -54,6 +54,7 @@ fn transaction(
                 amount: -amount,
             },
         ],
+        tags: Vec::new(),
     }
 }
 

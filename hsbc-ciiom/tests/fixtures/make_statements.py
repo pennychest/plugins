@@ -118,7 +118,7 @@ def credit_card():
     text(c, 40, 90, "Mr Bob Charles Example 4000 1234 5678 9010")
     text(c, 300, 90, "Statement Date 27 June 2026")
     text(c, 40, 110, "PreviousBalance 312.56")
-    text(c, 40, 122, "New Balance 1,039.79")
+    text(c, 40, 122, "New Balance 1,051.79")
     text(c, 40, 134, "TOTAL INTEREST CHARGED ON THIS STATEM ENT 1.50")
     cc_header(c, 160)
     cc_row(c, 180, "29 May 26", "28 May 26", "TESCO STORES 2041", "43.50")
@@ -132,8 +132,14 @@ def credit_card():
     # Long enough to start left of the column's header.
     cc_row(c, 95, "21 Jun 26", "21 Jun 26", "PAYMENT - THANK YOU", "3,000.00CR")
     cc_row(c, 110, "22 Jun 26", "21 Jun 26", "LARGE PURCHASE", "3,000.00")
-    text(c, 40, 130, "Total")
-    right(c, 553, 130, "1,058.28")
+    # An additional cardholder, whose name runs on to a second line.
+    text(c, 40, 140, "Miss Carol Dana 4000 1234 5678 9028")
+    text(c, 40, 151, "Example")
+    text(c, 40, 165, "Your Transaction Details")
+    cc_header(c, 180)
+    cc_row(c, 200, "24 Jun 26", "23 Jun 26", "BOOTS 1044", "12.00")
+    text(c, 40, 220, "Total")
+    right(c, 553, 220, "1,070.28")
     c.save()
 
 

@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.4.0
+
+- Tags each card transaction with its cardholder's first name and surname, e.g. "Bob Example",
+  so the main and additional cardholders' spending can be told apart. Needs PennyChest 0.9.0 or
+  later; earlier versions import as before, without tags.
+
 ## 0.3.0
 
 - Renamed from `hsbc`, as it reads HSBC CIIOM statements. If you have `hsbc` installed, install

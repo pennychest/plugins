@@ -424,6 +424,7 @@ fn ca_transactions(rows: &[CaRow]) -> Result<Vec<Row>, String> {
             raw_content: taken.raw.join(" | "),
             line_number: None,
             metadata,
+            tags: Vec::new(),
         });
         Ok(())
     };
@@ -566,11 +567,74 @@ fn first_received_date(pages: &[Page]) -> Option<NaiveDate> {
     None
 }
 
+/// Whose card a section of a card statement is for, from the line above its transactions:
+/// "Mr Bob Charles Example 4000 1234 5678 9010". A long name runs on to a second line.
+struct Cardholder {
+    names: Vec<String>,
+    x0: f64,
+    /// Where the next line of the name would be, until something else is read.
+    last_top: Option<f64>,
+}
+
+const TITLES: &[&str] = &["Mr", "Mrs", "Miss", "Ms", "Mx", "Dr"];
+
+fn is_name(word: &str) -> bool {
+    word.chars()
+        .all(|c| c.is_alphabetic() || c == '-' || c == '\'')
+}
+
+impl Cardholder {
+    /// The holder a row names: a title, their names, then the card's number.
+    fn read(row: &[&Word]) -> Option<Self> {
+        let (title, rest) = row.split_first()?;
+        if !TITLES.contains(&title.text.as_str()) {
+            return None;
+        }
+        let names: Vec<String> = rest
+            .iter()
+            .map(|w| w.text.as_str())
+            .take_while(|t| is_name(t))
+            .map(str::to_owned)
+            .collect();
+        let numbered = rest[names.len()..]
+            .first()
+            .is_some_and(|w| w.text.len() >= 4 && w.text.chars().all(|c| c.is_ascii_digit()));
+        (!names.is_empty() && numbered).then_some(Self {
+            names,
+            x0: title.x0,
+            last_top: Some(title.top),
+        })
+    }
+
+    /// Takes the rest of a name that ran on to this row, directly under where it began.
+    fn continues(&mut self, row: &[&Word]) -> bool {
+        let Some(top) = self.last_top.take() else {
+            return false;
+        };
+        let under = (row[0].x0 - self.x0).abs() < 2.0 && row[0].top - top < 13.0;
+        if !under || row[0].text == "Your" || !row.iter().all(|w| is_name(&w.text)) {
+            return false;
+        }
+        self.names.extend(row.iter().map(|w| w.text.clone()));
+        true
+    }
+
+    /// Their first name and surname: "Bob Example".
+    fn tag(&self) -> String {
+        match self.names.as_slice() {
+            [first, .., last] => format!("{first} {last}"),
+            names => names.join(" "),
+        }
+    }
+}
+
 fn parse_credit_card(pages: &[Page]) -> Result<Vec<Row>, String> {
     let mut rows = Vec::new();
     // Columns carry over between pages: continuation pages have no header, and a page can
     // end one card's transactions above the next card's header.
     let mut columns: Option<(f64, f64, f64)> = None;
+    // So does the cardholder: each card's transactions follow its holder's name.
+    let mut holder: Option<Cardholder> = None;
     for page in pages {
         if page.words.is_empty() {
             continue;
@@ -584,6 +648,15 @@ fn parse_credit_card(pages: &[Page]) -> Result<Vec<Row>, String> {
         // Every row on the page: headings, totals and notes are skipped because they don't
         // start with a date and end with an amount.
         for row in rows_by_top(&page.words, 3.0) {
+            if let Some(named) = Cardholder::read(&row) {
+                holder = Some(named);
+                continue;
+            }
+            if let Some(named) = &mut holder
+                && named.continues(&row)
+            {
+                continue;
+            }
             let (mut recv, mut txn, mut desc, mut amount) = (vec![], vec![], vec![], vec![]);
             for w in row {
                 let (x, t) = (w.x0, w.text.as_str());
@@ -655,6 +728,7 @@ fn parse_credit_card(pages: &[Page]) -> Result<Vec<Row>, String> {
                 ),
                 line_number: None,
                 metadata,
+                tags: holder.iter().map(Cardholder::tag).collect(),
             });
         }
     }
@@ -674,6 +748,7 @@ fn cc_interest(text: &str) -> Option<Row> {
         raw_content: m[0].split_whitespace().collect::<Vec<_>>().join(" "),
         line_number: None,
         metadata: Map::new(),
+        tags: Vec::new(),
     })
 }
 
@@ -952,6 +1027,7 @@ mod tests {
             raw_content: String::new(),
             line_number: None,
             metadata: Map::new(),
+            tags: Vec::new(),
         }
     }
 
