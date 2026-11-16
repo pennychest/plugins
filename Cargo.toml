@@ -10,7 +10,7 @@ rust-version = "1.97"
 
 [workspace.dependencies]
 # The plugin SDK, from the PennyChest repository.
-pennychest-plugin = { git = "https://github.com/pennychest/pennychest", rev = "d7e0671847ae515aec36781035cd9dcb8c9c6a67" }
+pennychest-plugin = { git = "https://github.com/pennychest/pennychest", rev = "cf1dc9a23a157373cfca4a0c21f58973dbf7bb05" }
 chrono = { version = "0.4", default-features = false }
 pdf-extract = "0.12"
 regex = "1"

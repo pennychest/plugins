@@ -61,6 +61,7 @@ fn row(transaction: &Transaction) -> Result<Row, String> {
         raw_content: transaction.raw.clone(),
         line_number: i64::try_from(transaction.line).ok(),
         metadata,
+        tags: Vec::new(),
     })
 }
 

@@ -11,6 +11,8 @@ current accounts, savings and credit cards.
   the account and its opening balance.
 - Reads every transaction, including descriptions over several lines and transactions that
   carry over to the next page. Contactless and in-app payments are noted as such.
+- Tags each card transaction with its cardholder's first name and surname, e.g. "Bob Example",
+  so the main and additional cardholders' spending can be told apart.
 - Adds a card's interest as a transaction on the statement's date. It's part of the statement's
   balance, but only its summary mentions it.
 - Checks every statement adds up: its opening balance and transactions have to come to its closing

@@ -402,7 +402,7 @@ checksum = "ed5909b6e89a2db4456e54cd5f673791d7eca6732202bbf2a9cc504fe2f9b84a"
 
 [[package]]
 name = "hsbc-ciiom"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "pdf-extract",
  "pennychest-plugin",
@@ -593,8 +593,8 @@ dependencies = [
 
 [[package]]
 name = "pennychest-plugin"
-version = "0.4.0"
-source = "git+https://github.com/pennychest/pennychest?rev=d7e0671847ae515aec36781035cd9dcb8c9c6a67#d7e0671847ae515aec36781035cd9dcb8c9c6a67"
+version = "0.9.0"
+source = "git+https://github.com/pennychest/pennychest?rev=cf1dc9a23a157373cfca4a0c21f58973dbf7bb05#cf1dc9a23a157373cfca4a0c21f58973dbf7bb05"
 dependencies = [
  "base64",
  "chrono",

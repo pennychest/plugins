@@ -100,7 +100,7 @@ fn a_credit_card_statement() {
     assert_eq!(info.period_end, Some(date("2026-06-27")));
     // Owed, so negative on the card's liability account.
     assert_eq!(info.opening_balance, Some(dec("-312.56")));
-    assert_eq!(info.closing_balance, Some(dec("-1039.79")));
+    assert_eq!(info.closing_balance, Some(dec("-1051.79")));
 
     let rows = Hsbc.parse(&pdf).unwrap();
     let expected = [
@@ -113,6 +113,8 @@ fn a_credit_card_statement() {
         // Long enough to start left of the column's header.
         ("2026-06-21", "PAYMENT - THANK YOU", "3000.00"),
         ("2026-06-21", "LARGE PURCHASE", "-3000.00"),
+        // The additional cardholder's.
+        ("2026-06-23", "BOOTS 1044", "-12.00"),
         // Only in the statement's summary, but in its balance.
         ("2026-06-27", "INTEREST CHARGED", "-1.50"),
     ]
@@ -120,6 +122,11 @@ fn a_credit_card_statement() {
     assert_eq!(summary(&rows), expected);
     assert_eq!(rows[0].metadata["received_date"], "2026-05-29");
     assert_eq!(rows[1].metadata["payment_method"], "contactless");
+    // Each transaction is tagged with its cardholder; interest is nobody's.
+    let tags: Vec<&[String]> = rows.iter().map(|r| r.tags.as_slice()).collect();
+    assert!(tags[..7].iter().all(|t| *t == ["Bob Example"]));
+    assert_eq!(tags[7], ["Carol Example"]);
+    assert!(tags[8].is_empty());
 }
 
 #[test]
