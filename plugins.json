@@ -13,9 +13,9 @@
       "package": "hsbc-ciiom",
       "name": "HSBC CIIOM statements",
       "description": "HSBC CIIOM PDF statements, for current accounts and credit cards",
-      "version": "0.3.0",
-      "url": "https://github.com/pennychest/plugins/releases/download/hsbc-ciiom-v0.3.0/hsbc-ciiom-0.3.0.tar.gz",
-      "sha256": "76539fd979f44a782bd85f379587fccf5c992d57b1934744a9837f9aed379be5"
+      "version": "0.4.0",
+      "url": "https://github.com/pennychest/plugins/releases/download/hsbc-ciiom-v0.4.0/hsbc-ciiom-0.4.0.tar.gz",
+      "sha256": "02786923b27c8e1020c4d0765593b9fdcbc651ba41fdb90572b839d0c4936ae9"
     },
     {
       "package": "ofx",
